@@ -320,6 +320,7 @@ print_array(io::IO, X::AbstractArray) = show_nd(io, X, print_matrix, true)
 # typeinfo aware
 # implements: show(io::IO, ::MIME"text/plain", X::AbstractArray)
 function show(io::IO, ::MIME"text/plain", X::AbstractArray)
+    isempty(X) && ndims(X) == 1 && return show(io, X)
     # 0) show summary before setting :compact
     summary(io, X)
     isempty(X) && return
@@ -421,7 +422,12 @@ _show_nonempty(io::IO, X::AbstractArray{T,0} where T, prefix::String) = print_ar
 
 # NOTE: it's not clear how this method could use the :typeinfo attribute
 _show_empty(io::IO, X::Array{T}) where {T} = print(io, "Array{", T, "}(undef,", join(size(X),','), ')')
-_show_empty(io, X) = nothing # by default, we don't know this constructor
+function _show_empty(io, X::AbstractArray)
+    show(io, typeof(X))
+    print(io, "(")
+    show(io, convert(Array, X))
+    print(io, ")")
+end
 
 # typeinfo aware (necessarily)
 function show(io::IO, X::AbstractArray)
