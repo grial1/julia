@@ -18,8 +18,10 @@ else
   LLVM_TOOLS_DIR = $(build_depsbindir)
 endif
 
-$(SRCDIR) $(TESTS):
+llvmpasses-deps:
 	$(MAKE) -C $(JULIAHOME)/deps install-LLVM_jll
+
+$(SRCDIR) $(TESTS): llvmpasses-deps
 	$(LLVM_ENV_ADJUST) $(PYTHON) $(call python_cygpath,$(LLVM_TOOLS_DIR)/lit/lit.py) -v $(call python_cygpath,$@)
 
 .PHONY: $(TESTS) $(SRCDIR) check all
