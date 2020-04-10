@@ -112,7 +112,7 @@ endif
 ifeq ($(BUILDROOT),)
 ifeq ("$(origin O)", "command line")
   BUILDROOT := $(abspath $O)
-  BUILDDIR := $(abspath $(BUILDROOT)/$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(JULIAHOME) $(SRCDIR)))
+  BUILDDIR := $(abspath $(BUILDROOT)/$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(JULIAHOME)) $(call python_cygpath,$(SRCDIR))))
   $(info $(shell printf '\033[32;1mBuilding into $(BUILDROOT)\033[0m')) # use printf to expand the escape sequences
 else
   BUILDROOT:=$(JULIAHOME)
@@ -299,15 +299,15 @@ endif
 build_private_libdir := $(build_libdir)/julia
 
 # Calculate relative paths to libdir, private_libdir, datarootdir, and sysconfdir
-build_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(build_bindir) $(build_libdir))
-libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(bindir) $(libdir))
-build_private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(build_bindir) $(build_private_libdir))
-private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(bindir) $(private_libdir))
-datarootdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(bindir) $(datarootdir))
-libexecdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(bindir) $(libexecdir))
-docdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(bindir) $(docdir))
-sysconfdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(bindir) $(sysconfdir))
-includedir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(bindir) $(includedir))
+build_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(build_libdir)))
+libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(libdir)))
+build_private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(build_private_libdir)))
+private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(private_libdir)))
+datarootdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(datarootdir)))
+libexecdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(libexecdir)))
+docdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(docdir))
+sysconfdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(sysconfdir)))
+includedir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(includedir)))
 
 INSTALL_F := $(JULIAHOME)/contrib/install.sh 644
 INSTALL_M := $(JULIAHOME)/contrib/install.sh 755
@@ -1083,7 +1083,7 @@ endef
 
 # Get a path relative to the bindir directory
 define binrel_path
-$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) "$(build_bindir)" "$(1)")
+$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) "$(call python_cygpath,$(build_bindir))" "$(1)")
 endef
 
 define jll_shlibdir
@@ -1292,7 +1292,7 @@ endif # $(OS) == Windows
 # Helper function for OS-independent relative RPATH links.  Note that we provide
 # both `-rpath` and `-rpath-link`, but we keep `-rpath-link` as absolute, not relative.
 define rpath_rel_link
-$(call rpath_flag,$(RPATH_ORIGIN_ROOT)/$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(build_bindir) $(1))) $(call rpath_link_flag,$(1))
+$(call rpath_flag,$(RPATH_ORIGIN_ROOT)/$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(1))) $(call rpath_link_flag,$(1))
 endef
 
 
