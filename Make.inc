@@ -1204,7 +1204,7 @@ ifeq ($(USE_BINARYBUILDER_LLVM),1)
   $(eval $(call find_jll,libLLVM_jll))
   LIBLLVM_SHLIBDIR = $(libLLVM_jll_DIR)/$(binlib)
   LLVM_CONFIG = $(libLLVM_jll_DIR)/tools/llvm-config$(EXE)
-  LLVM_CONFIG_PATH_ADJUST = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) 
+  LLVM_CONFIG_PATH_ADJUST = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll)
 
   $(eval $(call find_jll,Clang_jll))
   CLANG_EXE = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(Clang_jll_DIR)/tools/clang$(EXE)

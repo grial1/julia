@@ -66,7 +66,7 @@ $(build_private_libdir)/corecompiler.ji: $(COMPILER_SRCS)
 $(build_private_libdir)/sys.ji: $(build_private_libdir)/corecompiler.ji $(JULIAHOME)/VERSION $(BASE_SRCS) $(STDLIB_SRCS)
 	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
 	if ! JULIA_BINDIR=$(call cygpath_w,$(build_bindir)) $(call spawn, $(JULIA_EXECUTABLE)) -g1 -O0 -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp $(JULIA_SYSIMG_BUILD_FLAGS) \
-			--startup-file=no --warn-overwrite=yes --sysimage $(call cygpath_w,$<) sysimg.jl $(RELBUILDROOT); then \
+			--startup-file=no --warn-overwrite=yes --sysimage $(call cygpath_w,$<) sysimg.jl $(RELBUILDROOT) ; then \
 		echo '*** This error might be fixed by running `make clean`. If the error persists$(COMMA) try `make cleanall`. ***'; \
 		false; \
 	fi )
