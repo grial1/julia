@@ -305,7 +305,7 @@ build_private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)
 private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(private_libdir)))
 datarootdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(datarootdir)))
 libexecdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(libexecdir)))
-docdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(docdir))
+docdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(docdir)))
 sysconfdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(sysconfdir)))
 includedir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(includedir)))
 
@@ -1083,7 +1083,7 @@ endef
 
 # Get a path relative to the bindir directory
 define binrel_path
-$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) "$(call python_cygpath,$(build_bindir))" "$(1)")
+$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(1)))
 endef
 
 define jll_shlibdir
