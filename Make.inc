@@ -454,22 +454,22 @@ endif
 ifneq (,$(findstring Linux,$(BUILD_OS))$(findstring FreeBSD,$(BUILD_OS)))
 EXE_ENV_VAR := PATH
 LIB_ENV_VAR := LD_LIBRARY_PATH
-PATHSEP := :
+PATHSEP := /
 else ifneq (,$(findstring Darwin,$(BUILD_OS)))
 EXE_ENV_VAR := PATH
 LIB_ENV_VAR := DYLD_LIBRARY_PATH
-PATHSEP := :
+PATHSEP := /
 else ifneq (,$(findstring WINNT,$(BUILD_OS))$(findstring CYGWIN,$(BUILD_OS)))
 EXE_ENV_VAR := PATH
 LIB_ENV_VAR :=
-PATHSEP := ;
+PATHSEP := \\
 endif
 
 # Use this to set up the appropriate environment variables to run things like `clang` from `Clang_jll`.
 # Example usage: $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(clang_path) --version
 # We use `$(wildcard $(1))` here to include only entries that exist.
 define env_adjust
-$(EXE_ENV_VAR)=$(subst $(SPACE),$(PATHSEP),$(wildcard $(1)))$(PATHSEP)$$$(EXE_ENV_VAR) $(if $(LIB_ENV_VAR),$(LIB_ENV_VAR)=$(subst $(SPACE),:,$(wildcard $(2))):$$$(LIB_ENV_VAR),)
+$(EXE_ENV_VAR)="$(subst $(SPACE),:,$(wildcard $(1))):$$$(EXE_ENV_VAR)" $(if $(LIB_ENV_VAR),$(LIB_ENV_VAR)="$(subst $(SPACE),:,$(wildcard $(2))):$$$(LIB_ENV_VAR)",)
 endef
 define jll_env_adjust
 $(call env_adjust,$(foreach name,$(1),$($(name)_DIR)/bin $($(name)_DIR)/tools),$(foreach name,$(1),$($(name)_DIR)/lib))
@@ -1203,7 +1203,7 @@ else
 ifeq ($(USE_BINARYBUILDER_LLVM),1)
   $(eval $(call find_jll,libLLVM_jll))
   LIBLLVM_SHLIBDIR = $(libLLVM_jll_DIR)/$(binlib)
-  LLVM_CONFIG = $(libLLVM_jll_DIR)/tools/llvm-config$(EXE)
+  LLVM_CONFIG = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(libLLVM_jll_DIR)/tools/llvm-config$(EXE)
 
   $(eval $(call find_jll,Clang_jll))
   CLANG_EXE = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(Clang_jll_DIR)/tools/clang$(EXE)
@@ -1222,12 +1222,12 @@ ifeq ($(USE_SYSTEM_LLVM), 1)
 endif # SYSTEM_LLVM
 
 ifeq ($(BUILD_OS),$(OS))
-  LLVM_CONFIG_HOST = $(call jll_env_adjust,CompilerSupportLibraries_jll) $(LLVM_CONFIG)
+  LLVM_CONFIG_HOST = $(LLVM_CONFIG)
 else
-  LLVM_CONFIG_HOST = $(call jll_env_adjust,CompilerSupportLibraries_jll) $(basename $(LLVM_CONFIG))-host$(BUILD_EXE)
+  LLVM_CONFIG_HOST = $(basename $(LLVM_CONFIG))-host$(BUILD_EXE)
 ifneq (exists, $(shell [ -f '$(LLVM_CONFIG_HOST)' ] && echo exists ))
   # llvm-config-host does not exist (cmake build)
-  LLVM_CONFIG_HOST = $(call jll_env_adjust,CompilerSupportLibraries_jll) $(call spawn,$(LLVM_CONFIG))
+  LLVM_CONFIG_HOST = $(call spawn,$(LLVM_CONFIG))
 endif
 endif
 

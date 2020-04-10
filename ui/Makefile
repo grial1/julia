@@ -35,16 +35,6 @@ ifeq ($(USE_BINARYBUILDER_LLVM),1)
 JLDFLAGS += $(call rpath_rel_link,$(call cygpath,$(shell $(LLVM_CONFIG_HOST) --libdir)))
 endif
 
-# Delay-import DLL on Windows, giving us time to insert entries into PATH
-ifeq ($(OS),WINNT)
-JLDFLAGS += -municode
-
-$(build_bindir)/julia$(EXE): $(LIBJULIA_LINK)
-$(build_bindir)/julia-debug$(EXE): $(LIBJULIADEBUG_LINK)
-els-ljulia:= -ljulia
-LIBJULIADEBUG_LINK := -ljulia-debug
-endif
-
 default: release
 all: release debug
 release debug :  % : julia-%
@@ -55,6 +45,8 @@ $(BUILDDIR)/%.dbg.obj: $(SRCDIR)/%.c $(HEADERS)
 	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) -c $< -o $@)
 
 ifeq ($(OS),WINNT)
+JLDFLAGS += -municode
+
 ifneq ($(USEMSVC), 1)
 $(BUILDDIR)/julia_res.o: $(JULIAHOME)/contrib/windows/julia.rc $(JULIAHOME)/VERSION
 	JLVER=`cat $(JULIAHOME)/VERSION` && \
@@ -94,11 +86,17 @@ endif
 
 # Add `.exe` wrapper generation to properly setup `PATH` on windows to simulate `RPATH`
 ifeq ($(OS),WINNT)
-CPPFLAGS_PATH = -DPATH_ENTRIES="\"$$(echo "$(call cygpath_w,$(CSL_SHLIBDIR));$(call cygpath_w,$(LLVM_SHLIBDIR))" | sed -e 's_\\_\\\\_g')\""
+CPPFLAGS_PATH = -DPATH_ENTRIES="\"$$(echo "$(call cygpath_w,$(CSL_SHLIBDIR));$(call cygpath_w,$(LIBLLVM_SHLIBDIR))" | sed -e 's_\\_\\\\_g')\""
+define julia_exe_path
+-DJULIA_EXE_PATH="\"$$(echo '$(libexecdir_rel)$(PATHSEP)$(1)' | sed -e 's_\\_\\\\_g')\""
+endef
 define gen_wrapper_exe
 	-mv $(build_bindir)/$(1) $(build_libexecdir)/$(1)
-	$(call PRINT_CC, $(CXX) $(CXXFLAGS) $(SHIPFLAGS) -DJULIA_EXE_PATH=$(libexecdir_rel)/$(1) $(CPPFLAGS_PATH) $(JULIAHOME)/contrib/windows/exe_path_wrapper.c -o $(build_bindir)/$(1))
+	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CFLAGS) $(SHIPFLAGS) $(call julia_exe_path,$(1)) $(CPPFLAGS_PATH) $(JULIAHOME)/contrib/windows/exe_path_wrapper.c -o $(build_bindir)/$(1) $(JLDFLAGS))
 endef
+
+$(build_bindir)/julia$(EXE):  $(JULIAHOME)/contrib/windows/exe_path_wrapper.c
+$(build_bindir)/julia-debug$(EXE):  $(JULIAHOME)/contrib/windows/exe_path_wrapper.c
 endif
 
 

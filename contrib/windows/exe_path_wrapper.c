@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <tchar.h>
+#include <stdio.h>
 #define ENVVAR_MAXLEN 32760
 
 /* PATH_ENTRIES is our simulated RPATH, usually of the form "../path1;../path2;../path3" */
@@ -12,10 +13,10 @@
 #define JULIA_EXE_PATH "../libexec/julia.exe"
 #endif
 
-int wmain(int argc, char **argv) {
+int wmain(int argc, wchar_t *argv[], wchar_t *envp[]) {
     // On windows, we simulate RPATH by pushing onto PATH
-    LPSTR pathVal = (LPSTR) malloc(ENVVAR_MAXLEN*sizeof(TCHAR));
-    DWORD dwRet = GetEnvironmentVariable("PATH", pathVal, ENVVAR_MAXLEN);
+    LPWSTR pathVal = (LPWSTR) malloc(ENVVAR_MAXLEN*sizeof(WCHAR));
+    DWORD dwRet = GetEnvironmentVariable(TEXT("PATH"), pathVal, ENVVAR_MAXLEN);
     if (dwRet == 0) {
         // If we cannot get PATH, then our job is easy!
         pathVal[0] = '\0';
@@ -29,7 +30,7 @@ int wmain(int argc, char **argv) {
         lstrcat(pathVal, TEXT(";"));
         lstrcat(pathVal, TEXT(PATH_ENTRIES));
     }
-    SetEnvironmentVariable("PATH", pathVal);
+    SetEnvironmentVariable(TEXT("PATH"), pathVal);
     free(pathVal);
 
     STARTUPINFO info;
@@ -38,7 +39,7 @@ int wmain(int argc, char **argv) {
     GetStartupInfo(&info);
     if (CreateProcess(TEXT(JULIA_EXE_PATH), GetCommandLine(), NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo)) {
         WaitForSingleObject(processInfo.hProcess, INFINITE);
-        GetExitCodeProcess(pi.hProcess, &exit_code);
+        GetExitCodeProcess(processInfo.hProcess, &exit_code);
         CloseHandle(processInfo.hProcess);
         CloseHandle(processInfo.hThread);
     }
