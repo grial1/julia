@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <stdio.h>
+#include <shlwapi.h>
 #define ENVVAR_MAXLEN 32760
 
 /* PATH_ENTRIES is our simulated RPATH, usually of the form "../path1;../path2;../path3" */
@@ -14,13 +15,19 @@
 #endif
 
 int wmain(int argc, wchar_t *argv[], wchar_t *envp[]) {
+    // Determine absolute path to true julia.exe sitting in `libexec/`
+    WCHAR currFileDir[MAX_PATH];
+    WCHAR juliaPath[MAX_PATH];
+    GetModuleFileName(NULL, currFileDir, MAX_PATH);
+    PathRemoveFileSpec(currFileDir);
+    PathCombine(juliaPath, currFileDir, TEXT(JULIA_EXE_PATH));
+
     // On windows, we simulate RPATH by pushing onto PATH
     LPWSTR pathVal = (LPWSTR) malloc(ENVVAR_MAXLEN*sizeof(WCHAR));
     DWORD dwRet = GetEnvironmentVariable(TEXT("PATH"), pathVal, ENVVAR_MAXLEN);
     if (dwRet == 0) {
         // If we cannot get PATH, then our job is easy!
         pathVal[0] = '\0';
-        lstrcat(pathVal, TEXT(PATH_ENTRIES));
     } else {
         // Otherwise, we append, if we have enough space to:
         if (ENVVAR_MAXLEN - dwRet < _tcslen(PATH_ENTRIES) ) {
@@ -28,8 +35,11 @@ int wmain(int argc, wchar_t *argv[], wchar_t *envp[]) {
             exit(1);
         }
         lstrcat(pathVal, TEXT(";"));
-        lstrcat(pathVal, TEXT(PATH_ENTRIES));
     }
+    // We always add the current directory (e.g. `bin/`) to PATH so that we can find e.g. libjulia.dll
+    lstrcat(pathVal, currFileDir);
+    lstrcat(pathVal, TEXT(";"));
+    lstrcat(pathVal, TEXT(PATH_ENTRIES));
     SetEnvironmentVariable(TEXT("PATH"), pathVal);
     free(pathVal);
 
@@ -37,7 +47,7 @@ int wmain(int argc, wchar_t *argv[], wchar_t *envp[]) {
     PROCESS_INFORMATION processInfo;
     DWORD exit_code = 1;
     GetStartupInfo(&info);
-    if (CreateProcess(TEXT(JULIA_EXE_PATH), GetCommandLine(), NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo)) {
+    if (CreateProcess(juliaPath, GetCommandLine(), NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo)) {
         WaitForSingleObject(processInfo.hProcess, INFINITE);
         GetExitCodeProcess(processInfo.hProcess, &exit_code);
         CloseHandle(processInfo.hProcess);

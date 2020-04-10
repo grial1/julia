@@ -92,7 +92,7 @@ define julia_exe_path
 endef
 define gen_wrapper_exe
 	-mv $(build_bindir)/$(1) $(build_libexecdir)/$(1)
-	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CFLAGS) $(SHIPFLAGS) $(call julia_exe_path,$(1)) $(CPPFLAGS_PATH) $(JULIAHOME)/contrib/windows/exe_path_wrapper.c -o $(build_bindir)/$(1) $(JLDFLAGS))
+	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CFLAGS) $(SHIPFLAGS) $(call julia_exe_path,$(1)) $(CPPFLAGS_PATH) $(JULIAHOME)/contrib/windows/exe_path_wrapper.c -o $(build_bindir)/$(1) $(JLDFLAGS) -lshlwapi)
 endef
 
 $(build_bindir)/julia$(EXE):  $(JULIAHOME)/contrib/windows/exe_path_wrapper.c

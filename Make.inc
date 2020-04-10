@@ -1203,7 +1203,8 @@ else
 ifeq ($(USE_BINARYBUILDER_LLVM),1)
   $(eval $(call find_jll,libLLVM_jll))
   LIBLLVM_SHLIBDIR = $(libLLVM_jll_DIR)/$(binlib)
-  LLVM_CONFIG = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(libLLVM_jll_DIR)/tools/llvm-config$(EXE)
+  LLVM_CONFIG = $(libLLVM_jll_DIR)/tools/llvm-config$(EXE)
+  LLVM_CONFIG_PATH_ADJUST = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) 
 
   $(eval $(call find_jll,Clang_jll))
   CLANG_EXE = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(Clang_jll_DIR)/tools/clang$(EXE)
@@ -1222,12 +1223,12 @@ ifeq ($(USE_SYSTEM_LLVM), 1)
 endif # SYSTEM_LLVM
 
 ifeq ($(BUILD_OS),$(OS))
-  LLVM_CONFIG_HOST = $(LLVM_CONFIG)
+  LLVM_CONFIG_HOST = $(LLVM_CONFIG_PATH_ADJUST) $(LLVM_CONFIG)
 else
-  LLVM_CONFIG_HOST = $(basename $(LLVM_CONFIG))-host$(BUILD_EXE)
+  LLVM_CONFIG_HOST = $(LLVM_CONFIG_PATH_ADJUST) $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(basename $(LLVM_CONFIG))-host$(BUILD_EXE)
 ifneq (exists, $(shell [ -f '$(LLVM_CONFIG_HOST)' ] && echo exists ))
   # llvm-config-host does not exist (cmake build)
-  LLVM_CONFIG_HOST = $(call spawn,$(LLVM_CONFIG))
+  LLVM_CONFIG_HOST = $(LLVM_CONFIG_PATH_ADJUST) $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(call spawn,$(LLVM_CONFIG))
 endif
 endif
 
