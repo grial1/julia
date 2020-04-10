@@ -29,54 +29,21 @@ JULIA_DEFINE_FAST_TLS()
 extern "C" {
 #endif
 
-// Because windows now uses a delay-load library for RPATH emulation, we cannot directly access
-// global variables within libjulia from here, we must instead manually import them via LoadLibrary
-// and GetProcAddress within `main()` below.  Read more about the ramifications of delay-loading here:
-// https://docs.microsoft.com/en-us/cpp/build/reference/constraints-of-delay-loading-dlls
-#ifdef _OS_WINDOWS_
-HMODULE hLibJulia = NULL;
-jl_module_t * get_jl_main_module() {
-    return *((jl_module_t **)GetProcAddress(hLibJulia, "jl_main_module"));
-}
-jl_module_t * get_jl_base_module() {
-    return *((jl_module_t **)GetProcAddress(hLibJulia, "jl_base_module"));
-}
-JL_STREAM * get_jl_stdout() {
-    return *((JL_STREAM **)GetProcAddress(hLibJulia, "jl_uv_stdout"));
-}
-JL_STREAM * get_jl_stderr() {
-    return *((JL_STREAM **)GetProcAddress(hLibJulia, "jl_uv_stderr"));
-}
-#else
-jl_module_t * get_jl_main_module() {
-    return jl_main_module;
-}
-jl_module_t * get_jl_base_module() {
-    return jl_base_module;
-}
-JL_STREAM * get_jl_stdout() {
-    return JL_STDOUT;
-}
-JL_STREAM * get_jl_stderr() {
-    return JL_STDERR;
-}
-#endif
-
 static int exec_program(char *program)
 {
     JL_TRY {
-        jl_load(get_jl_main_module(), program);
+        jl_load(jl_main_module, program);
     }
     JL_CATCH {
         jl_value_t *errs = jl_stderr_obj();
         volatile int shown_err = 0;
-        jl_printf(get_jl_stderr(), "error during bootstrap:\n");
+        jl_printf(JL_STDERR, "error during bootstrap:\n");
         JL_TRY {
             if (errs) {
-                jl_value_t *showf = jl_get_function(get_jl_base_module(), "show");
+                jl_value_t *showf = jl_get_function(jl_base_module, "show");
                 if (showf != NULL) {
                     jl_call2(showf, errs, jl_current_exception());
-                    jl_printf(get_jl_stderr(), "\n");
+                    jl_printf(JL_STDERR, "\n");
                     shown_err = 1;
                 }
             }
@@ -84,11 +51,11 @@ static int exec_program(char *program)
         JL_CATCH {
         }
         if (!shown_err) {
-            jl_static_show(get_jl_stderr(), jl_current_exception());
-            jl_printf(get_jl_stderr(), "\n");
+            jl_static_show(JL_STDERR, jl_current_exception());
+            jl_printf(JL_STDERR, "\n");
         }
         jlbacktrace();
-        jl_printf(get_jl_stderr(), "\n");
+        jl_printf(JL_STDERR, "\n");
         return 1;
     }
     return 0;
@@ -100,13 +67,13 @@ void jl_lisp_prompt();
 static void print_profile(void)
 {
     size_t i;
-    void **table = get_jl_base_module()->bindings.table;
-    for(i=1; i < get_jl_base_module()->bindings.size; i+=2) {
+    void **table = jl_base_module->bindings.table;
+    for(i=1; i < jl_base_module->bindings.size; i+=2) {
         if (table[i] != HT_NOTFOUND) {
             jl_binding_t *b = (jl_binding_t*)table[i];
             if (b->value != NULL && jl_is_function(b->value) &&
                 jl_is_gf(b->value)) {
-                jl_printf(get_jl_stderr(), "%d\t%s\n",
+                jl_printf(JL_STDERR, "%d\t%s\n",
                            jl_gf_mtable(b->value)->ncalls,
                            jl_gf_name(b->value)->name);
             }
@@ -119,9 +86,8 @@ static NOINLINE int true_main(int argc, char *argv[])
 {
     jl_set_ARGS(argc, argv);
 
-    jl_module_t * base_module = get_jl_base_module();
-    jl_function_t *start_client = base_module ?
-        (jl_function_t*)jl_get_global(base_module, jl_symbol("_start")) : NULL;
+    jl_function_t *start_client = jl_base_module ?
+        (jl_function_t*)jl_get_global(jl_base_module, jl_symbol("_start")) : NULL;
 
     if (start_client) {
         JL_TRY {
@@ -155,14 +121,14 @@ static NOINLINE int true_main(int argc, char *argv[])
             line = ios_readline(ios_stdin);
             jl_value_t *val = (jl_value_t*)jl_eval_string(line);
             if (jl_exception_occurred()) {
-                jl_printf(get_jl_stderr(), "error during run:\n");
-                jl_static_show(get_jl_stderr(), jl_exception_occurred());
+                jl_printf(JL_STDERR, "error during run:\n");
+                jl_static_show(JL_STDERR, jl_exception_occurred());
                 jl_exception_clear();
             }
             else if (val) {
-                jl_static_show(get_jl_stdout(), val);
+                jl_static_show(JL_STDOUT, val);
             }
-            jl_printf(get_jl_stdout(), "\n");
+            jl_printf(JL_STDOUT, "\n");
             free(line);
             line = NULL;
             uv_run(jl_global_event_loop(),UV_RUN_NOWAIT);
@@ -172,9 +138,9 @@ static NOINLINE int true_main(int argc, char *argv[])
                 free(line);
                 line = NULL;
             }
-            jl_printf(get_jl_stderr(), "\nparser error:\n");
-            jl_static_show(get_jl_stderr(), jl_current_exception());
-            jl_printf(get_jl_stderr(), "\n");
+            jl_printf(JL_STDERR, "\nparser error:\n");
+            jl_static_show(JL_STDERR, jl_current_exception());
+            jl_printf(JL_STDERR, "\n");
             jlbacktrace();
         }
     }
@@ -187,8 +153,6 @@ int main(int argc, char *argv[])
     uv_setup_args(argc, argv); // no-op on Windows
 #else
 
-#include <tchar.h>
-#define ENVVAR_MAXLEN 32760
 static void lock_low32() {
 #if defined(_P64) && defined(JL_DEBUG_BUILD)
     // Wine currently has a that causes it to answer VirtualQuery incorrectly.
@@ -226,28 +190,6 @@ static void lock_low32() {
 }
 int wmain(int argc, wchar_t *argv[], wchar_t *envp[])
 {
-    // On windows, we simulate RPATH by pushing onto PATH
-    LPSTR pathVal = (LPSTR) malloc(ENVVAR_MAXLEN*sizeof(TCHAR));
-    DWORD dwRet = GetEnvironmentVariable("PATH", pathVal, ENVVAR_MAXLEN);
-    if (dwRet == 0) {
-        // If we cannot get PATH, then our job is easy!
-        pathVal[0] = '\0';
-        lstrcat(pathVal, TEXT(PATH_ENTRIES));
-    } else {
-        // Otherwise, we append, if we have enough space to:
-        if (ENVVAR_MAXLEN - dwRet < _tcslen(PATH_ENTRIES) ) {
-            printf("ERROR: Cannot append entries to PATH: not enough space in environment block.  Reduce size of PATH!");
-            exit(1);
-        }
-        lstrcat(pathVal, TEXT(";"));
-        lstrcat(pathVal, TEXT(PATH_ENTRIES));
-    }
-    SetEnvironmentVariable("PATH", pathVal);
-    free(pathVal);
-
-    // Once we've set up our PATH, explicitly load libjulia.dll for global symbol lookups later.
-    hLibJulia = LoadLibrary(TEXT(LIBJULIA_NAME));
-
     int i;
     lock_low32();
     for (i=0; i<argc; i++) { // write the command line to UTF8

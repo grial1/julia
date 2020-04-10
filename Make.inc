@@ -1210,7 +1210,7 @@ ifeq ($(USE_BINARYBUILDER_LLVM),1)
   CLANG_INCDIR = $(Clang_jll_DIR)/include
 else
   LLVM_CONFIG = $(build_depsbindir)/llvm-config$(EXE)
-  LLVM_SHLIBDIR = $(build_shlibdir)
+  LIBLLVM_SHLIBDIR = $(build_shlibdir)
   CLANG_EXE = $(build_depsbindir)/clang$(EXE)
   CLANG_INCDIR = $(build_includedir)
 endif # USE_BINARYBUILDER_LLVM

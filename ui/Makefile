@@ -37,26 +37,11 @@ endif
 
 # Delay-import DLL on Windows, giving us time to insert entries into PATH
 ifeq ($(OS),WINNT)
-$(build_libdir)/import_libraries:
-	mkdir -p $@
-
-$(build_libdir)/import_libraries/libjulia.a: $(build_shlibdir)/libjulia.dll $(build_shlibdir)/libjulia.def | $(build_libdir)/import_libraries
-	$(DLLTOOL) -d $(build_shlibdir)/libjulia.def -D $(build_shlibdir)/libjulia.dll -y $@
-$(build_libdir)/import_libraries/libjulia-debug.a: $(build_shlibdir)/libjulia-debug.dll $(build_shlibdir)/libjulia-debug.def | $(build_libdir)/import_libraries
-	$(DLLTOOL) -d $(build_shlibdir)/libjulia-debug.def -D $(build_shlibdir)/libjulia-debug.dll -y $@
-
-LIBJULIA_LINK := $(build_libdir)/import_libraries/libjulia.a
-LIBJULIADEBUG_LINK := $(build_libdir)/import_libraries/libjulia-debug.a
-SHIPFLAGS += -DLIBJULIA_NAME="\"libjulia.dll\""
-DEBUGFLAGS += -DLIBJULIA_NAME="\"libjulia-debug.dll\""
-
-JLDFLAGS += -municode -static-libgcc
-CPPFLAGS_PATH = -DPATH_ENTRIES="\"$$(echo "$(call cygpath_w,$(CSL_SHLIBDIR));$(call cygpath_w,$(LLVM_SHLIBDIR))" | sed -e 's_\\_\\\\_g')\""
+JLDFLAGS += -municode
 
 $(build_bindir)/julia$(EXE): $(LIBJULIA_LINK)
 $(build_bindir)/julia-debug$(EXE): $(LIBJULIADEBUG_LINK)
-else
-LIBJULIA_LINK := -ljulia
+els-ljulia:= -ljulia
 LIBJULIADEBUG_LINK := -ljulia-debug
 endif
 
@@ -65,9 +50,9 @@ all: release debug
 release debug :  % : julia-%
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS)
-	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CPPFLAGS_PATH) $(CFLAGS) $(SHIPFLAGS) -c $< -o $@)
+	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CFLAGS) $(SHIPFLAGS) -c $< -o $@)
 $(BUILDDIR)/%.dbg.obj: $(SRCDIR)/%.c $(HEADERS)
-	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CPPFLAGS_PATH) $(CFLAGS) $(DEBUGFLAGS) -c $< -o $@)
+	@$(call PRINT_CC, $(CC) $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) -c $< -o $@)
 
 ifeq ($(OS),WINNT)
 ifneq ($(USEMSVC), 1)
@@ -107,24 +92,27 @@ else
 CXXLD := $(LD)
 endif
 
-# Add `.cmd` wrapper generation to properly setup `PATH` on windows
+# Add `.exe` wrapper generation to properly setup `PATH` on windows to simulate `RPATH`
 ifeq ($(OS),WINNT)
-$(build_bindir)/%.cmd:
-	@echo "@echo off" > $@
-	@echo "set PATH=%PATH%;%~dp0\\$(call binrel_path,$(CSL_SHLIBDIR));%~dp0\\$(call binrel_path,$(LLVM_SHLIBDIR))" >> $@
-	@echo "\"%~dp0\"\\$*.exe %*" >> $@
-	@chmod a+x $@
-
-julia-release: $(build_bindir)/julia.cmd
-julia-debug: $(build_bindir)/julia-debug.cmd
+CPPFLAGS_PATH = -DPATH_ENTRIES="\"$$(echo "$(call cygpath_w,$(CSL_SHLIBDIR));$(call cygpath_w,$(LLVM_SHLIBDIR))" | sed -e 's_\\_\\\\_g')\""
+define gen_wrapper_exe
+	-mv $(build_bindir)/$(1) $(build_libexecdir)/$(1)
+	$(call PRINT_CC, $(CXX) $(CXXFLAGS) $(SHIPFLAGS) -DJULIA_EXE_PATH=$(libexecdir_rel)/$(1) $(CPPFLAGS_PATH) $(JULIAHOME)/contrib/windows/exe_path_wrapper.c -o $(build_bindir)/$(1))
+endef
 endif
 
 
 $(build_bindir)/julia$(EXE): $(OBJS)
-	@$(call PRINT_LINK, $(CXXLD) $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(SHIPFLAGS) $(OBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) $(LIBJULIA_LINK) $(JLDFLAGS) $(CXXLDFLAGS))
+	@$(call PRINT_LINK, $(CXXLD) $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(SHIPFLAGS) $(OBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia $(JLDFLAGS) $(CXXLDFLAGS))
+ifeq ($(OS),WINNT)
+	@$(call gen_wrapper_exe,julia$(EXE))
+endif
 
 $(build_bindir)/julia-debug$(EXE): $(DOBJS)
-	@$(call PRINT_LINK, $(CXXLD) $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(DEBUGFLAGS) $(DOBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) $(LIBJULIADEBUG_LINK) $(JLDFLAGS) $(CXXLDFLAGS))
+	@$(call PRINT_LINK, $(CXXLD) $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(DEBUGFLAGS) $(DOBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia-debug $(JLDFLAGS) $(CXXLDFLAGS))
+ifeq ($(OS),WINNT)
+	@$(call gen_wrapper_exe,julia-debug$(EXE))
+endif
 
 clean: | $(CLEAN_TARGETS)
 	rm -f *.o *.dbg.obj
