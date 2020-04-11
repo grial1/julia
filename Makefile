@@ -46,10 +46,10 @@ $(BUILDROOT)/doc/_build/html/en/index.html: $(shell find $(BUILDROOT)/base $(BUI
 
 julia-symlink: julia-ui-$(JULIA_BUILD_MODE)
 ifeq ($(OS),WINNT)
-	@echo '@"%~dp0"\'"$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) "$(call python_cygpath,$(BUILDROOT))" "$(call python_cygpath,$(JULIA_EXECUTABLE))" | tr / '\\')" '%*' > $(BUILDROOT)/julia.bat
+	@echo '@"%~dp0"\'"$$(echo $(call rel_path,$(BUILDROOT),$(JULIA_EXECUTABLE)) | tr / '\\')" '%*' > $(BUILDROOT)/julia.bat
 	chmod a+x $(BUILDROOT)/julia.bat
 else
-	@ln -sf "$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) "$(call python_cygpath,$(BUILDROOT))" "$(call python_cygpath,$(JULIA_EXECUTABLE))")" $(BUILDROOT)/julia
+	@ln -sf $(call rel_path,$(BUILDROOT),$(JULIA_EXECUTABLE)) $(BUILDROOT)/julia
 endif
 
 julia-stdlib: | $(DIRS)

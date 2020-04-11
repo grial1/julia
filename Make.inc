@@ -108,11 +108,16 @@ else
 python_cygpath = $(1)
 endif
 
+# Get a relative path easily
+define rel_path
+$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(1)) $(call python_cygpath,$(2)))
+endef
+
 # pick up BUILDROOT from O= if it isn't already set (from recursive make)
 ifeq ($(BUILDROOT),)
 ifeq ("$(origin O)", "command line")
   BUILDROOT := $(abspath $O)
-  BUILDDIR := $(abspath $(BUILDROOT)/$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(JULIAHOME)) $(call python_cygpath,$(SRCDIR))))
+  BUILDDIR := $(abspath $(BUILDROOT)/$(call rel_path,$(JULIAHOME),$(SRCDIR)))
   $(info $(shell printf '\033[32;1mBuilding into $(BUILDROOT)\033[0m')) # use printf to expand the escape sequences
 else
   BUILDROOT:=$(JULIAHOME)
@@ -303,7 +308,7 @@ build_private_libdir := $(build_libdir)/julia
 # until the TOML files are on-disk before we can parse them.  This means that we cannot
 # use `:=` (since we do not want to evaluate these rules now, we want to evaluate them
 # when we use them, so we use `=`) however we also do not want to re-evaluate them
-# multiple times.  So we define a caching mechanism where the rules are still lazily
+# multiple times.  So we define a caching mechanism where the rules are still lazily 
 # evaluated, but we cache the value such that the second time around we don't have to
 # re-evaluate them.  Usage example:
 #
@@ -317,18 +322,13 @@ define hit_cache
 $(if $(_CACHE-$(1)),,$(eval _CACHE-$(1) := $($(1))))$(_CACHE-$(1))
 endef
 
-# Get a path relative to the bindir directory
-define binrel_path
-$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(1)))
-endef
-
-
 # Calculate relative paths to libdir, private_libdir, datarootdir, and sysconfdir
 define cache_rel_path
-$(1)_rel_eval = $(call binrel_path,$(1))
+$(1)_rel_eval = $(call binrel_path,$(2),$(1))
 $(1)_rel = $$(call hit_cache,$(1)_rel_eval)
 endef
-$(foreach D,build_libdir libdir build_private_libdir private_libdir datarootdir libexecdir docdir sysconfdir includedir,$(eval $(call cache_rel_path,$(D))))
+$(foreach D,libdir private_libdir datarootdir libexecdir docdir sysconfdir includedir,$(eval $(call cache_rel_path,$(D),$(bindir))))
+$(foreach D,build_libdir build_private_libdir,$(eval $(call cache_rel_path,$(D),$(build_bindir))))
 
 INSTALL_F := $(JULIAHOME)/contrib/install.sh 644
 INSTALL_M := $(JULIAHOME)/contrib/install.sh 755
@@ -1118,7 +1118,7 @@ ifeq ($(USE_BINARYBUILDER_PCRE),1)
   $(eval $(call find_jll,PCRE2_jll))
   PCRE_CONFIG = $(PCRE2_jll_DIR)/bin/pcre2-config$(EXE)
   PCRE_INCDIR = $(PCRE2_jll_DIR)/include
-  PCRE_LIBDIR_rel = $(call binrel_path,$(PCRE2_jll_DIR)/${binlib})
+  PCRE_LIBDIR_rel = $(call rel_path,$(build_bindir),$(PCRE2_jll_DIR)/${binlib})
 else
   PCRE_CONFIG = $(build_depsbindir)/pcre2-config$(EXE)
   PCRE_INCDIR = $(build_includedir)
