@@ -324,7 +324,7 @@ endef
 
 # Calculate relative paths to libdir, private_libdir, datarootdir, and sysconfdir
 define cache_rel_path
-$(1)_rel_eval = $(call binrel_path,$(2),$(1))
+$(1)_rel_eval = $(call rel_path,$(2),$(1))
 $(1)_rel = $$(call hit_cache,$(1)_rel_eval)
 endef
 $(foreach D,libdir private_libdir datarootdir libexecdir docdir sysconfdir includedir,$(eval $(call cache_rel_path,$(D),$(bindir))))
