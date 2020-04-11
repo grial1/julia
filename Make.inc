@@ -298,16 +298,37 @@ private_libdir := $(libdir)/julia
 endif
 build_private_libdir := $(build_libdir)/julia
 
+# A helper functions for dealing with lazily-evaluated, expensive operations..  Spinning
+# up a python process to, for exaxmple, parse a TOML file is expensive, and we must wait
+# until the TOML files are on-disk before we can parse them.  This means that we cannot
+# use `:=` (since we do not want to evaluate these rules now, we want to evaluate them
+# when we use them, so we use `=`) however we also do not want to re-evaluate them
+# multiple times.  So we define a caching mechanism where the rules are still lazily 
+# evaluated, but we cache the value such that the second time around we don't have to
+# re-evaluate them.  Usage example:
+#
+# EXPENSIVE_OPERATION = $(shell prog args...)
+# CACHED_RESULT = $(call hit_cache,EXPENSIVE_OPERATION)
+#
+# The first time you use `$(CACHED_RESULT)`, it will invoke `$(EXPENSIVE_OPERATION)`,
+# but after that point, it will not, unless `$(EXPENSIVE_OPERATION)` evaluated to the
+# empty string, in which case it will be re-evaluated.
+define hit_cache
+$(if $(_CACHE-$(1)),,$(eval _CACHE-$(1) := $($(1))))$(_CACHE-$(1))
+endef
+
+# Get a path relative to the bindir directory
+define binrel_path
+$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(1)))
+endef
+
+
 # Calculate relative paths to libdir, private_libdir, datarootdir, and sysconfdir
-build_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(build_libdir)))
-libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(libdir)))
-build_private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(build_private_libdir)))
-private_libdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(private_libdir)))
-datarootdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(datarootdir)))
-libexecdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(libexecdir)))
-docdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(docdir)))
-sysconfdir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(sysconfdir)))
-includedir_rel := $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(bindir)) $(call python_cygpath,$(includedir)))
+define cache_rel_path
+$(1)_rel_eval = $(call binrel_path,$(1))
+$(1)_rel = $$(call hit_cache,$(1)_rel_eval)
+endef
+$(foreach D,build_libdir libdir build_private_libdir private_libdir datarootdir libexecdir docdir sysconfdir includedir,$(eval $(call cache_rel_path,$(D))))
 
 INSTALL_F := $(JULIAHOME)/contrib/install.sh 644
 INSTALL_M := $(JULIAHOME)/contrib/install.sh 755
@@ -1055,17 +1076,6 @@ endif
 # We default libosxunwind to just use whatever libunwind is set to
 USE_BINARYBUILDER_LIBOSXUNWIND ?= $(USE_BINARYBUILDER_LIBUNWIND)
 
-# Some helper functions for finding JLL packages.  Spinning up a python process to parse a
-# TOML file is expensive, and we must wait until the TOML files are on-disk before we can
-# parse them.  This means that we cannot use `:=` (since we do not want to evaluate these
-# rules now, we want to evaluate them when we use them, so we use `=`) however we also do
-# not want to re-evaluate them multiple times.  So we define a caching mechanism where the
-# rules are still lazily-evaluated, but we cache the value such that the second time around
-# we don't have to re-evaluate them.
-define hit_cache
-$(if $(_CACHE-$(1)),,$(eval _CACHE-$(1) := $($(1))))$(_CACHE-$(1))
-endef
-
 # Parse the treehash of a particular artifact for the current platform
 define artifact_treehash
 $(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/extract_artifact_info.py) $(call python_cygpath,$(build_datarootdir)/julia/stdlib/$(VERSDIR)/$(1)/Artifacts.toml) $(BB_TRIPLET_LIBGFORTRAN_CXXABI) | cut -d' ' -f1)
@@ -1079,11 +1089,6 @@ endef
 define find_jll
 $(1)_TREEHASH=$$(call artifact_treehash,$(1))
 $(1)_DIR=$(build_datarootdir)/julia/artifacts/$$(call hit_cache,$(1)_TREEHASH)
-endef
-
-# Get a path relative to the bindir directory
-define binrel_path
-$(shell $(PYTHON) $(call python_cygpath,$(JULIAHOME)/contrib/relative_path.py) $(call python_cygpath,$(build_bindir)) $(call python_cygpath,$(1)))
 endef
 
 define jll_shlibdir
@@ -1199,6 +1204,7 @@ endif
 ifeq ($(origin LLVM_CONFIG), undefined)
 ifeq ($(USE_SYSTEM_LLVM), 1)
   LLVM_CONFIG = llvm-config$(EXE)
+  LLVM_SIZE = llvm-size$(EXE)
 else
 ifeq ($(USE_BINARYBUILDER_LLVM),1)
   $(eval $(call find_jll,libLLVM_jll))
@@ -1209,11 +1215,15 @@ ifeq ($(USE_BINARYBUILDER_LLVM),1)
   $(eval $(call find_jll,Clang_jll))
   CLANG_EXE = $(call jll_env_adjust,libLLVM_jll CompilerSupportLibraries_jll) $(Clang_jll_DIR)/tools/clang$(EXE)
   CLANG_INCDIR = $(Clang_jll_DIR)/include
+
+  $(eval $(call find_jll,LLVM_jll))
+  LLVM_SIZE = $(LLVM_jll_DIR)/tools/llvm-size$(EXE)
 else
   LLVM_CONFIG = $(build_depsbindir)/llvm-config$(EXE)
   LIBLLVM_SHLIBDIR = $(build_shlibdir)
   CLANG_EXE = $(build_depsbindir)/clang$(EXE)
   CLANG_INCDIR = $(build_includedir)
+  LLVM_SIZE = $(build_depsbindir)/llvm-size$(EXE)
 endif # USE_BINARYBUILDER_LLVM
 endif # USE_SYSTEM_LLVM
 endif # LLVM_CONFIG undefined

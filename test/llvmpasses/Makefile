@@ -9,7 +9,6 @@ TESTS = $(patsubst $(SRCDIR)/%,%,$(wildcard $(SRCDIR)/*.jl $(SRCDIR)/*.ll))
 # We always include the build directories as we need to link against libjulia
 LLVM_ENV_ADJUST = $(call env_adjust,$(build_depsbindir),$(build_shlibdir))
 ifeq ($(USE_BINARYBUILDER_LLVM),1)
-  $(eval $(call find_jll,LLVM_jll))
   LLVM_TOOLS_DIR = $(LLVM_jll_DIR)/tools
 
   # Add on the JLL directories
