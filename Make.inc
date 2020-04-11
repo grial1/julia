@@ -308,7 +308,7 @@ build_private_libdir := $(build_libdir)/julia
 # until the TOML files are on-disk before we can parse them.  This means that we cannot
 # use `:=` (since we do not want to evaluate these rules now, we want to evaluate them
 # when we use them, so we use `=`) however we also do not want to re-evaluate them
-# multiple times.  So we define a caching mechanism where the rules are still lazily 
+# multiple times.  So we define a caching mechanism where the rules are still lazily
 # evaluated, but we cache the value such that the second time around we don't have to
 # re-evaluate them.  Usage example:
 #
